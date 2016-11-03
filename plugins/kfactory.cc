@@ -40,29 +40,78 @@ void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) 
     std::cout << "Error: rechit collection not available." << std::endl;
     exit(1);
   }
+  if (debugFlag) { 
+    iRechit     = 0;
+  }
+  nBigRechits = 0;
   kenergies .clear();
   ktimes    .clear();
   kietas    .clear();
   kiphis    .clear();
   kdepths   .clear();
-  std::cout << "There are " << rechitCollection->size() << " rechits in this event " << std::endl; 
+  // Find all big rechits
   for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
-    kenergies .push_back( rechit ->  energy()     ) ;
-    ktimes    .push_back( rechit ->  time()       ) ;
-    kietas    .push_back( rechit ->  id().ieta()  ) ;
-    kiphis    .push_back( rechit ->  id().iphi()  ) ;
-    kdepths   .push_back( rechit ->  id().depth() ) ;
-    if (debugFlag) {
-      std::cout << "  Rechit number " << iRechit              << " has:" << std::endl;
-      std::cout << "      energy = "  << rechit->energy()     << std::endl;
-      std::cout << "      time   = "  << rechit->time()       << std::endl;
-      std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
-      std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
-      std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+    if (debugFlag) { 
+      ++iRechit;
     }
-    ++iRechit;
+    if (rechit->energy() > 20) {
+      ++nBigRechits;
+      kenergies .push_back( rechit ->  energy()     ) ;
+      ktimes    .push_back( rechit ->  time()       ) ;
+      kietas    .push_back( rechit ->  id().ieta()  ) ;
+      kiphis    .push_back( rechit ->  id().iphi()  ) ;
+      kdepths   .push_back( rechit ->  id().depth() ) ;
+      if (debugFlag) {
+        std::cout << " Big Rechit number " << nBigRechits << " is rechit number " << iRechit              << " and has:" << std::endl;
+        std::cout << "      energy = "  << rechit->energy()     << std::endl;
+        std::cout << "      time   = "  << rechit->time()       << std::endl;
+        std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
+        std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
+        std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+      }
+    }
   }
-  ktree->Fill();
+  if (debugFlag) { 
+    iRechit     = 0;
+  }
+  // Find all neighboring rechits to big ones
+  if (nBigRechits>0) {
+    for(std::size_t iBigRechit = 0; iBigRechit != nBigRechits; ++iBigRechit) {
+      /* std::cout << *it; ... */
+      for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
+        if (debugFlag) { 
+          ++iRechit;
+        }
+        if(rechit->energy() > 0.1 && std::abs(kietas[iBigRechit]-rechit->id().ieta()) < 3 && std::abs(kiphis[iBigRechit]-rechit->id().iphi()) < 3 ) {
+          alreadyThere=false;
+          for(size_t i = 0; i != kietas.size(); ++i) {
+            if (rechit->id().ieta() == kietas[i]) {
+              if (rechit->id().iphi() == kiphis[i]) {   
+                if(rechit->id().depth() == kdepths[i]) {
+                  alreadyThere=true;
+                }
+              }
+            }
+          }
+          if (alreadyThere) continue;
+          kenergies .push_back( rechit ->  energy()     ) ;
+          ktimes    .push_back( rechit ->  time()       ) ;
+          kietas    .push_back( rechit ->  id().ieta()  ) ;
+          kiphis    .push_back( rechit ->  id().iphi()  ) ;
+          kdepths   .push_back( rechit ->  id().depth() ) ;
+          if (debugFlag) {
+            std::cout << " Neighboring rechit is rechit number " << iRechit              << " and has:" << std::endl;
+            std::cout << "      energy = "  << rechit->energy()     << std::endl;
+            std::cout << "      time   = "  << rechit->time()       << std::endl;
+            std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
+            std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
+            std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+          }
+        }
+      }
+    }
+    ktree->Fill();
+  }
 }
 
 

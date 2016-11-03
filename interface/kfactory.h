@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
+#include <algorithm>
 
 #include "TTree.h"
 #include "TH1D.h"
@@ -39,11 +40,13 @@ class kfactory : public edm::one::EDAnalyzer<edm::one::SharedResources>
     edm::Service<TFileService> fileservice;
     edm::InputTag rechitTag;
     edm::EDGetTokenT<HBHERecHitCollection> rechitTok;
-    int iRechit;
+    unsigned short iRechit;
+    unsigned short nBigRechits;
     std::vector<float> kenergies;
     std::vector<float> ktimes;
     std::vector<short>   kietas;
     std::vector<short>   kiphis;
     std::vector<short>   kdepths;
     TTree* ktree;
+    bool alreadyThere;
 };
