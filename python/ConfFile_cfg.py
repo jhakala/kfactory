@@ -18,7 +18,8 @@ else:
 # input
 process.source = cms.Source("PoolSource",
   fileNames = cms.untracked.vstring(
-    'file:/home/hakala/calibMC/02746755-1331-E611-B845-0025905D1D7A.root'
+    #'file:/home/hakala/calibSamples/calibMC/singleNuTest.root'
+    'file:/home/hakala/calibSamples/calibData/82C43DFD-413B-E611-A736-02163E01225C.root'
   )
 )
 

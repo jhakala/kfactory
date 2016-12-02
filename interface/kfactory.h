@@ -19,6 +19,9 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "DataFormats/HcalRecHit/interface/HcalRecHitCollections.h"
 #include "DataFormats/HcalDetId/interface/HcalDetId.h"
+#include "FWCore/Common/interface/TriggerNames.h"
+#include "DataFormats/Common/interface/TriggerResults.h"
+#include "DataFormats/HLTReco/interface/TriggerEvent.h"
 
 
 class kfactory : public edm::one::EDAnalyzer<edm::one::SharedResources>  
@@ -37,16 +40,22 @@ class kfactory : public edm::one::EDAnalyzer<edm::one::SharedResources>
 
   protected:
     bool debugFlag;
+    bool hasBigMuon;
     edm::Service<TFileService> fileservice;
-    edm::InputTag rechitTag;
-    edm::EDGetTokenT<HBHERecHitCollection> rechitTok;
-    unsigned short iRechit;
-    unsigned short nBigRechits;
-    std::vector<float> kenergies;
-    std::vector<float> ktimes;
-    std::vector<short>   kietas;
-    std::vector<short>   kiphis;
-    std::vector<short>   kdepths;
+    edm::InputTag rechitTag       ;
+    edm::InputTag triggerResTag   ;
+    edm::InputTag triggerEventTag ;
+    std::string   triggerName     ;
+    edm::EDGetTokenT<HBHERecHitCollection>  rechitTok       ;
+    edm::EDGetTokenT<edm::TriggerResults>   triggerResTok   ;
+    edm::EDGetTokenT<trigger::TriggerEvent> triggerEventTok ;
+    unsigned short iRechit     ;
+    unsigned short nBigRechits ;
+    std::vector<float>   kenergies ;
+    std::vector<float>   ktimes    ;
+    std::vector<short>   kietas    ;
+    std::vector<short>   kiphis    ;
+    std::vector<short>   kdepths   ;
     TTree* ktree;
     bool alreadyThere;
 };

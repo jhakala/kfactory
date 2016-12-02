@@ -23,6 +23,13 @@ kfactory::kfactory(const edm::ParameterSet& iConfig) {
   rechitTag = iConfig.getUntrackedParameter<edm::InputTag>("rechitTag", edm::InputTag("hbhereco"));
   rechitTok = consumes<HBHERecHitCollection>(rechitTag);
 
+  triggerResTag = iConfig.getUntrackedParameter<edm::InputTag>("triggerResTag", edm::InputTag("TriggerResults"));
+  triggerResTok = consumes<edm::TriggerResults>(triggerResTag);
+
+  triggerEventTag = iConfig.getUntrackedParameter<edm::InputTag>("triggerEventTag", edm::InputTag("hltTriggerSummaryAOD"));
+  triggerEventTok = consumes<trigger::TriggerEvent>(triggerEventTag);
+
+  triggerName = "hltL1sSingleMu22";
   ktree = fileservice->make<TTree>("ktree","ktree");  
 }
 
@@ -35,82 +42,138 @@ kfactory::kfactory(const edm::ParameterSet& iConfig) {
 void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
+  hasBigMuon = false;
+
   Handle<HBHERecHitCollection> rechitCollection;
   if (!(iEvent.getByToken(rechitTok, rechitCollection))) {
     std::cout << "Error: rechit collection not available." << std::endl;
     exit(1);
   }
-  if (debugFlag) { 
-    iRechit     = 0;
+  Handle<edm::TriggerResults> triggerResults;
+  if (!(iEvent.getByToken(triggerResTok, triggerResults))) {
+    std::cout << "Error: trigger results collection not available." << std::endl;
+    exit(1);
   }
-  nBigRechits = 0;
-  kenergies .clear();
-  ktimes    .clear();
-  kietas    .clear();
-  kiphis    .clear();
-  kdepths   .clear();
-  // Find all big rechits
-  for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
-    if (debugFlag) { 
-      ++iRechit;
-    }
-    if (rechit->energy() > 20) {
-      ++nBigRechits;
-      kenergies .push_back( rechit ->  energy()     ) ;
-      ktimes    .push_back( rechit ->  time()       ) ;
-      kietas    .push_back( rechit ->  id().ieta()  ) ;
-      kiphis    .push_back( rechit ->  id().iphi()  ) ;
-      kdepths   .push_back( rechit ->  id().depth() ) ;
+  Handle<trigger::TriggerEvent> triggerEvent;
+  if (!(iEvent.getByToken(triggerEventTok, triggerEvent))) {
+    std::cout << "Error: trigger event collection not available." << std::endl;
+    exit(1);
+  }
+
+  if ( triggerResults.isValid() && triggerEvent.isValid() ) {
+    const edm::TriggerNames& triggerNames = iEvent.triggerNames(*triggerResults);
+    if (debugFlag) std::cout << "This event has the following trigger results available: " << std::endl;
+    for (int iTriggerRes = 0; iTriggerRes < (int) triggerResults->size(); ++iTriggerRes) {
       if (debugFlag) {
-        std::cout << " Big Rechit number " << nBigRechits << " is rechit number " << iRechit              << " and has:" << std::endl;
-        std::cout << "      energy = "  << rechit->energy()     << std::endl;
-        std::cout << "      time   = "  << rechit->time()       << std::endl;
-        std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
-        std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
-        std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+        std::cout << "    " << triggerNames.triggerName(iTriggerRes) << std::endl;
+      }
+    }
+
+    if (debugFlag) std::cout << "This event has the following trigger event info available: " << std::endl;
+    const trigger::TriggerObjectCollection & triggerObjects = triggerEvent -> getObjects();
+    size_t nFilters       = triggerEvent -> sizeFilters();
+    size_t nFiltersPassed = 0;
+    size_t iFilter        = 0;
+
+    for (; iFilter < nFilters; ++iFilter) {
+      std::string          name = triggerEvent -> filterTag ( iFilter ).label();
+      if ( name != triggerName ) continue;
+      const trigger::Keys& keys = triggerEvent -> filterKeys( iFilter );
+      const trigger::Vids& vids = triggerEvent -> filterIds ( iFilter );
+      int nKeys = (int) keys.size();
+      int nVids = (int) vids.size();
+      assert ( nKeys == nVids ) ;
+      if (debugFlag) std::cout << "Checking filter with name: " << name << std::endl;
+      for (int iTriggerObject = 0; iTriggerObject < nKeys; ++iTriggerObject ) { 
+        int                id  = vids[iTriggerObject];
+        trigger::size_type key = keys[iTriggerObject];
+        const trigger::TriggerObject & triggerObject = triggerObjects [key];
+        if (debugFlag) {
+          std::cout << "  triggerObject " << iTriggerObject << " has id   = " << id                   << std::endl;
+          std::cout << "  triggerObject " << iTriggerObject << " has pt   = " << triggerObject.pt  () << std::endl;
+          std::cout << "  triggerObject " << iTriggerObject << " has eta  = " << triggerObject.eta () << std::endl;
+          std::cout << "  triggerObject " << iTriggerObject << " has phi  = " << triggerObject.phi () << std::endl;
+          std::cout << "  triggerObject " << iTriggerObject << " has mass = " << triggerObject.mass() << std::endl; 
+        }
+        if (triggerObject.pt() > 30) { hasBigMuon = true; }
       }
     }
   }
-  if (debugFlag) { 
-    iRechit     = 0;
-  }
-  // Find all neighboring rechits to big ones
-  if (nBigRechits>0) {
-    for(std::size_t iBigRechit = 0; iBigRechit != nBigRechits; ++iBigRechit) {
-      /* std::cout << *it; ... */
-      for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
-        if (debugFlag) { 
-          ++iRechit;
+    
+  if (hasBigMuon) { 
+
+    if (debugFlag) { 
+      iRechit     = 0;
+    }
+    nBigRechits = 0;
+    kenergies .clear();
+    ktimes    .clear();
+    kietas    .clear();
+    kiphis    .clear();
+    kdepths   .clear();
+    // Find all big rechits
+    for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
+      if (debugFlag) { 
+        ++iRechit;
+      }
+      if (rechit->energy() > 20) {
+        ++nBigRechits;
+        kenergies .push_back( rechit ->  energy()     ) ;
+        ktimes    .push_back( rechit ->  time()       ) ;
+        kietas    .push_back( rechit ->  id().ieta()  ) ;
+        kiphis    .push_back( rechit ->  id().iphi()  ) ;
+        kdepths   .push_back( rechit ->  id().depth() ) ;
+        if (debugFlag) {
+          std::cout << " Big Rechit number " << nBigRechits << " is rechit number " << iRechit              << " and has:" << std::endl;
+          std::cout << "      energy = "  << rechit->energy()     << std::endl;
+          std::cout << "      time   = "  << rechit->time()       << std::endl;
+          std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
+          std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
+          std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
         }
-        if(rechit->energy() > 0.1 && std::abs(kietas[iBigRechit]-rechit->id().ieta()) < 3 && std::abs(kiphis[iBigRechit]-rechit->id().iphi()) < 3 ) {
-          alreadyThere=false;
-          for(size_t i = 0; i != kietas.size(); ++i) {
-            if (rechit->id().ieta() == kietas[i]) {
-              if (rechit->id().iphi() == kiphis[i]) {   
-                if(rechit->id().depth() == kdepths[i]) {
-                  alreadyThere=true;
+      }
+    }
+    if (debugFlag) { 
+      iRechit     = 0;
+    }
+    // Find all neighboring rechits to big ones
+    if (nBigRechits>0) {
+      for(std::size_t iBigRechit = 0; iBigRechit != nBigRechits; ++iBigRechit) {
+        /* std::cout << *it; ... */
+        for (HBHERecHitCollection::const_iterator rechit=rechitCollection->begin(); rechit<rechitCollection->end(); rechit++) {
+          if (debugFlag) { 
+            ++iRechit;
+          }
+          if(rechit->energy() > 0.1 && std::abs(kietas[iBigRechit]-rechit->id().ieta()) < 3 && std::abs(kiphis[iBigRechit]-rechit->id().iphi()) < 3 ) {
+            alreadyThere=false;
+            for(size_t i = 0; i != kietas.size(); ++i) {
+              if (rechit->id().ieta() == kietas[i]) {
+                if (rechit->id().iphi() == kiphis[i]) {   
+                  if(rechit->id().depth() == kdepths[i]) {
+                    alreadyThere=true;
+                  }
                 }
               }
             }
-          }
-          if (alreadyThere) continue;
-          kenergies .push_back( rechit ->  energy()     ) ;
-          ktimes    .push_back( rechit ->  time()       ) ;
-          kietas    .push_back( rechit ->  id().ieta()  ) ;
-          kiphis    .push_back( rechit ->  id().iphi()  ) ;
-          kdepths   .push_back( rechit ->  id().depth() ) ;
-          if (debugFlag) {
-            std::cout << " Neighboring rechit is rechit number " << iRechit              << " and has:" << std::endl;
-            std::cout << "      energy = "  << rechit->energy()     << std::endl;
-            std::cout << "      time   = "  << rechit->time()       << std::endl;
-            std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
-            std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
-            std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+            if (alreadyThere) continue;
+            kenergies .push_back( rechit ->  energy()     ) ;
+            ktimes    .push_back( rechit ->  time()       ) ;
+            kietas    .push_back( rechit ->  id().ieta()  ) ;
+            kiphis    .push_back( rechit ->  id().iphi()  ) ;
+            kdepths   .push_back( rechit ->  id().depth() ) ;
+            if (debugFlag) {
+              std::cout << " Neighboring rechit is rechit number " << iRechit              << " and has:" << std::endl;
+              std::cout << "      energy = "  << rechit->energy()     << std::endl;
+              std::cout << "      time   = "  << rechit->time()       << std::endl;
+              std::cout << "      ieta   = "  << rechit->id().ieta()  << std::endl;
+              std::cout << "      iphi   = "  << rechit->id().iphi()  << std::endl;
+              std::cout << "      depth  = "  << rechit->id().depth() << std::endl;
+            }
           }
         }
       }
+      ktree->Fill();
     }
-    ktree->Fill();
   }
 }
 
