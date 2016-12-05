@@ -5,7 +5,7 @@ process = cms.Process("kfactorize")
 process.load("FWCore.MessageService.MessageLogger_cfi")
 process.MessageLogger.destinations = ['cout', 'cerr']
 
-debug=False;
+debug=True;
 
 if debug:
   process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(5) )

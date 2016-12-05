@@ -40,7 +40,8 @@ class kfactory : public edm::one::EDAnalyzer<edm::one::SharedResources>
 
   protected:
     bool debugFlag;
-    bool hasBigMuon;
+    bool doTriggerResults;
+    //bool hasBigMuon;
     edm::Service<TFileService> fileservice;
     edm::InputTag rechitTag       ;
     edm::InputTag triggerResTag   ;

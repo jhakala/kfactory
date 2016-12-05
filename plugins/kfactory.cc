@@ -19,17 +19,20 @@ kfactory::kfactory(const edm::ParameterSet& iConfig) {
   usesResource("TFileService");
 
   debugFlag = iConfig.getUntrackedParameter<bool>("debugFlag");
+  doTriggerResults = false;
 
   rechitTag = iConfig.getUntrackedParameter<edm::InputTag>("rechitTag", edm::InputTag("hbhereco"));
   rechitTok = consumes<HBHERecHitCollection>(rechitTag);
 
-  triggerResTag = iConfig.getUntrackedParameter<edm::InputTag>("triggerResTag", edm::InputTag("TriggerResults"));
-  triggerResTok = consumes<edm::TriggerResults>(triggerResTag);
+  if (doTriggerResults) {
+    triggerResTag = iConfig.getUntrackedParameter<edm::InputTag>("triggerResTag", edm::InputTag("TriggerResults"));
+    triggerResTok = consumes<edm::TriggerResults>(triggerResTag);
+  }
 
   triggerEventTag = iConfig.getUntrackedParameter<edm::InputTag>("triggerEventTag", edm::InputTag("hltTriggerSummaryAOD"));
   triggerEventTok = consumes<trigger::TriggerEvent>(triggerEventTag);
 
-  triggerName = "hltL1sSingleMu22";
+  //triggerName = "hltL1sSingleMu22";
   ktree = fileservice->make<TTree>("ktree","ktree");  
 }
 
@@ -42,65 +45,85 @@ kfactory::kfactory(const edm::ParameterSet& iConfig) {
 void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-  hasBigMuon = false;
+  //hasBigMuon = false;
 
   Handle<HBHERecHitCollection> rechitCollection;
   if (!(iEvent.getByToken(rechitTok, rechitCollection))) {
     std::cout << "Error: rechit collection not available." << std::endl;
     exit(1);
   }
-  Handle<edm::TriggerResults> triggerResults;
-  if (!(iEvent.getByToken(triggerResTok, triggerResults))) {
-    std::cout << "Error: trigger results collection not available." << std::endl;
-    exit(1);
-  }
   Handle<trigger::TriggerEvent> triggerEvent;
-  if (!(iEvent.getByToken(triggerEventTok, triggerEvent))) {
-    std::cout << "Error: trigger event collection not available." << std::endl;
+  if (!(iEvent.getByToken(triggerEventTok, triggerEvent)) ) {
+    std::cout << "Error: trigger event collection not available or not valid." << std::endl;
     exit(1);
   }
 
-  if ( triggerResults.isValid() && triggerEvent.isValid() ) {
-    const edm::TriggerNames& triggerNames = iEvent.triggerNames(*triggerResults);
-    if (debugFlag) std::cout << "This event has the following trigger results available: " << std::endl;
-    for (int iTriggerRes = 0; iTriggerRes < (int) triggerResults->size(); ++iTriggerRes) {
-      if (debugFlag) {
-        std::cout << "    " << triggerNames.triggerName(iTriggerRes) << std::endl;
+  if ( triggerEvent.isValid() ) {
+    if (doTriggerResults ) {
+      Handle<edm::TriggerResults> triggerResults;
+      const edm::TriggerNames& triggerNames = iEvent.triggerNames(*triggerResults);
+      if (!(iEvent.getByToken(triggerResTok, triggerResults)) || !triggerResults.isValid()) {
+        std::cout << "Error: trigger results collection not available." << std::endl;
+        exit(1);
+      }
+      if (debugFlag) std::cout << "This event has the following trigger results available: " << std::endl;
+      for (int iTriggerRes = 0; iTriggerRes < (int) triggerResults->size(); ++iTriggerRes) {
+        if (debugFlag) {
+          std::cout << "    " << triggerNames.triggerName(iTriggerRes) << std::endl;
+        }
       }
     }
 
     if (debugFlag) std::cout << "This event has the following trigger event info available: " << std::endl;
     const trigger::TriggerObjectCollection & triggerObjects = triggerEvent -> getObjects();
-    size_t nFilters       = triggerEvent -> sizeFilters();
-    size_t nFiltersPassed = 0;
-    size_t iFilter        = 0;
+    //size_t nFilters       = triggerEvent -> sizeFilters();
+    //size_t nFiltersPassed = 0;
+    //size_t iFilter        = 0;
 
-    for (; iFilter < nFilters; ++iFilter) {
-      std::string          name = triggerEvent -> filterTag ( iFilter ).label();
-      if ( name != triggerName ) continue;
-      const trigger::Keys& keys = triggerEvent -> filterKeys( iFilter );
-      const trigger::Vids& vids = triggerEvent -> filterIds ( iFilter );
-      int nKeys = (int) keys.size();
-      int nVids = (int) vids.size();
-      assert ( nKeys == nVids ) ;
-      if (debugFlag) std::cout << "Checking filter with name: " << name << std::endl;
-      for (int iTriggerObject = 0; iTriggerObject < nKeys; ++iTriggerObject ) { 
-        int                id  = vids[iTriggerObject];
-        trigger::size_type key = keys[iTriggerObject];
-        const trigger::TriggerObject & triggerObject = triggerObjects [key];
+    //for (; iFilter < nFilters; ++iFilter) {
+    //  std::string          name = triggerEvent -> filterTag ( iFilter ).label();
+    //  //if ( name != triggerName ) continue;
+    //  const trigger::Keys& keys = triggerEvent -> filterKeys( iFilter );
+    //  const trigger::Vids& vids = triggerEvent -> filterIds ( iFilter );
+    //  int nKeys = (int) keys.size();
+    //  int nVids = (int) vids.size();
+    //  assert ( nKeys == nVids ) ;
+    //  if (debugFlag) std::cout << "Checking filter with name: " << name << std::endl;
+    //  for (int iTriggerObject = 0; iTriggerObject < nKeys; ++iTriggerObject ) { 
+    //    int                id  = vids[iTriggerObject];
+    //    trigger::size_type key = keys[iTriggerObject];
+    //    const trigger::TriggerObject & triggerObject = triggerObjects [key];
+    //    if (debugFlag) {
+    //      std::cout << "  triggerObject " << iTriggerObject << " has id   = " << id                   << std::endl;
+    //      std::cout << "  triggerObject " << iTriggerObject << " has pt   = " << triggerObject.pt  () << std::endl;
+    //      std::cout << "  triggerObject " << iTriggerObject << " has eta  = " << triggerObject.eta () << std::endl;
+    //      std::cout << "  triggerObject " << iTriggerObject << " has phi  = " << triggerObject.phi () << std::endl;
+    //      std::cout << "  triggerObject " << iTriggerObject << " has mass = " << triggerObject.mass() << std::endl; 
+    //    }
+    //    if (triggerObject.pt() > 30) { hasBigMuon = true; }
+    //  }
+    //}
+
+    size_t nObjects       = triggerEvent -> sizeObjects();
+    size_t iObject        = 0;
+    
+    for (; iObject < nObjects; ++iObject) {
+      const trigger::TriggerObject & triggerObject = triggerObjects [iObject];
+        if (triggerObject.pt() < 1) continue;
         if (debugFlag) {
-          std::cout << "  triggerObject " << iTriggerObject << " has id   = " << id                   << std::endl;
-          std::cout << "  triggerObject " << iTriggerObject << " has pt   = " << triggerObject.pt  () << std::endl;
-          std::cout << "  triggerObject " << iTriggerObject << " has eta  = " << triggerObject.eta () << std::endl;
-          std::cout << "  triggerObject " << iTriggerObject << " has phi  = " << triggerObject.phi () << std::endl;
-          std::cout << "  triggerObject " << iTriggerObject << " has mass = " << triggerObject.mass() << std::endl; 
+          std::cout << "  triggerObject " << iObject << " has id     = " << triggerObject.id      () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has energy = " << triggerObject.energy  () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has et     = " << triggerObject.et      () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has pt     = " << triggerObject.pt      () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has eta    = " << triggerObject.eta     () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has phi    = " << triggerObject.phi     () << std::endl;
+          std::cout << "  triggerObject " << iObject << " has mass   = " << triggerObject.mass    () << std::endl; 
         }
-        if (triggerObject.pt() > 30) { hasBigMuon = true; }
-      }
+      //if (triggerObject.pt() > 30) { hasBigMuon = true; }
     }
   }
     
-  if (hasBigMuon) { 
+  //if (hasBigMuon) { 
 
     if (debugFlag) { 
       iRechit     = 0;
@@ -174,7 +197,7 @@ void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) 
       }
       ktree->Fill();
     }
-  }
+  //}
 }
 
 
