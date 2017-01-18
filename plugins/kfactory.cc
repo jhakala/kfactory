@@ -47,6 +47,13 @@ void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) 
 
   //hasBigMuon = false;
 
+  tids      .clear();
+  tenergies .clear();
+  tets      .clear();
+  tetas     .clear();
+  tphis     .clear();
+  tmasses   .clear();
+
   Handle<HBHERecHitCollection> rechitCollection;
   if (!(iEvent.getByToken(rechitTok, rechitCollection))) {
     std::cout << "Error: rechit collection not available." << std::endl;
@@ -109,7 +116,7 @@ void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) 
     
     for (; iObject < nObjects; ++iObject) {
       const trigger::TriggerObject & triggerObject = triggerObjects [iObject];
-        if (triggerObject.pt() < 1) continue;
+        if (triggerObject.energy() < 20) continue;
         if (debugFlag) {
           std::cout << "  triggerObject " << iObject << " has id     = " << triggerObject.id      () << std::endl;
           std::cout << "  triggerObject " << iObject << " has energy = " << triggerObject.energy  () << std::endl;
@@ -119,6 +126,12 @@ void kfactory::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) 
           std::cout << "  triggerObject " << iObject << " has phi    = " << triggerObject.phi     () << std::endl;
           std::cout << "  triggerObject " << iObject << " has mass   = " << triggerObject.mass    () << std::endl; 
         }
+        tids      .push_back( triggerObject.id      () );
+        tenergies .push_back( triggerObject.energy  () );
+        tets      .push_back( triggerObject.et      () );
+        tetas     .push_back( triggerObject.eta     () );
+        tphis     .push_back( triggerObject.phi     () );
+        tmasses   .push_back( triggerObject.mass    () ); 
       //if (triggerObject.pt() > 30) { hasBigMuon = true; }
     }
   }
@@ -208,6 +221,12 @@ void kfactory::beginJob() {
   ktree->Branch( "kietas"    , &kietas    );
   ktree->Branch( "kiphis"    , &kiphis    );
   ktree->Branch( "kdepths"   , &kdepths   );
+  ktree->Branch( "tids"      , &tids      );
+  ktree->Branch( "tenergies" , &tenergies );
+  ktree->Branch( "tets"      , &tets      );
+  ktree->Branch( "tetas"     , &tetas     );
+  ktree->Branch( "tphis"     , &tphis     );
+  ktree->Branch( "tmasses"   , &tmasses   );
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
